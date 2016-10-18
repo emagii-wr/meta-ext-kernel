@@ -1,0 +1,86 @@
+meta-ext-kernel
+==============
+
+This layer overrides the normal kernel build
+
+It is enabled, by defining KSRC in the 'make'.
+
+$ make KSRC=1 -C <board> package
+
+common.mk should contain:
+
+-include     $(REPOTOP)/layers/*/make/addlayer-on-KSRC.mk
+
+When this layer is enabled, the kernel source is located in <yocto>/linux.
+
+The build directory will be the source directory.
+
+Tricks to enable building with external source
+
+===============================================================================
+conf/layer.conf defines:
+
+	YOCTO_ROOT = "${LAYERDIR}/../.."
+
+This way the kernel recipe will find out where the kernel source is located
+===============================================================================
+kernel.bbclass defines:
+do_unpack[cleandirs] += " ${S} ${STAGING_KERNEL_DIR} ${B} ${STAGING_KERNEL_BUILDDIR}"
+do_clean[cleandirs] += " ${S} ${STAGING_KERNEL_DIR} ${B} ${STAGING_KERNEL_BUILDDIR}"
+
+This results in that the kernel source is removed when you do:
+
+$ make KSRC=1 -C dusx2 bbs
+$ bitbake -c cleansstate virtual/kernel
+
+WORKAROUND: Add kernel.bbclass to layer with these lines commented away
+===============================================================================
+kernelsrc.bbclass defines:
+do_unpack[depends] += "virtual/kernel:do_patch"
+
+There is no do_patch when using external source, so this is commented away
+
+WORKAROUND: Add kernelsrc.bbclass to layer with this line commented away
+===============================================================================
+kernel-yocto.bbclass defines:
+SRCTREECOVEREDTASKS += "do_kernel_link_vmlinux do_kernel_configme do_validate_branches do_kernel_configcheck do_kernel_checkout do_shared_workdir do_fetch do_unpack do_patch"
+
+WORKAROUND: Add kernel-yocto.bbclass to layer with this line commented away
+
+
+===============================================================================
+A lot of recipes depend on STAGING_KERNEL_DIR containg kernel source.
+bitbake.conf defines:
+
+STAGING_KERNEL_DIR = "${TMPDIR}/work-shared/${MACHINE}/kernel-source"
+STAGING_KERNEL_BUILDDIR = "${TMPDIR}/work-shared/${MACHINE}/kernel-build-artifacts"
+
+We define in templates/default/template.conf
+STAGING_KERNEL_DIR = "${YOCTO_ROOT}/linux"
+STAGING_KERNEL_BUILDDIR = "${STAGING_KERNEL_DIR}"
+
+This is probably wrong, and instead a symlink should be created:
+
+ln -sf <yocto>/<linux> ${TMPDIR}/work-shared/${MACHINE}/kernel-source
+kernel.bbclass appears to intend doing this, but it did not work.
+
+===============================================================================
+perf.bb contains:
+
+do_configure[depends] += "virtual/kernel:do_shared_workdir"
+
+This needs to be commented away
+It would be better if do_shared_workdir was defined in a class.
+===============================================================================
+kernel-windriver-custom.bbappend contains a number of functions
+
+* do_kernel_config_externalsrc
+* do_kernel_configme
+* do_shared_workdir
+* do_clean
+* do_cleanall
+
+to override kernel stuff that does unwanted things.
+It would be better if they were defined in a class.
+
+do_compile_kernelmodules is broken, if the source and build directory are the same.
