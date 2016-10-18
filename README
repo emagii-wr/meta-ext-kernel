@@ -30,7 +30,7 @@ do_clean[cleandirs] += " ${S} ${STAGING_KERNEL_DIR} ${B} ${STAGING_KERNEL_BUILDD
 
 This results in that the kernel source is removed when you do:
 
-$ make KSRC=1 -C dusx2 bbs
+$ make KSRC=1 -C <board> bbs
 $ bitbake -c cleansstate virtual/kernel
 
 WORKAROUND: Add kernel.bbclass to layer with these lines commented away
